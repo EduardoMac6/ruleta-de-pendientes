@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>¿Por dónde empiezo? · Ruleta de pendientes</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <p class="eyebrow">Ruleta de pendientes</p>
+      <h1>¿Por dónde empiezo?</h1>
+      <p class="subtitle">
+        Para cuando tienes mil cosas encima y no sabes por cuál tirar: anótalo todo, gira y deja que salga tu
+        <strong>primer paso</strong>.
+      </p>
+    </header>
+
+    <main class="main">
+      <section class="panel" aria-labelledby="panel-inputs">
+        <h2 id="panel-inputs" class="panel-title">Tu lista de pendientes</h2>
+        <form class="add-form" id="add-form" autocomplete="off">
+          <label class="sr-only" for="activity-input">Nuevo pendiente</label>
+          <input
+            id="activity-input"
+            type="text"
+            maxlength="120"
+            placeholder="Ej.: facturas, correo, llamar a…"
+          />
+          <button type="submit" class="btn btn-secondary">Añadir</button>
+        </form>
+        <ul class="activity-list" id="activity-list" aria-live="polite"></ul>
+        <p class="hint" id="list-hint">Hacen falta al menos 2 pendientes para girar.</p>
+        <button type="button" class="btn btn-primary btn-spin" id="btn-spin" disabled>
+          Elegir por mí
+        </button>
+      </section>
+
+      <section class="wheel-section" aria-labelledby="wheel-heading">
+        <h2 id="wheel-heading" class="sr-only">Ruleta de pendientes</h2>
+        <div class="wheel-wrap" id="wheel-wrap">
+          <div class="pointer" aria-hidden="true"></div>
+          <div class="wheel-clip">
+            <canvas id="wheel" width="420" height="420" role="img" aria-label="Ruleta de pendientes"></canvas>
+          </div>
+          <div class="wheel-tooltip" id="wheel-tooltip" role="tooltip" hidden></div>
+        </div>
+        <div class="result" id="result" role="status" aria-live="assertive"></div>
+        <button type="button" class="btn btn-done" id="btn-done" hidden>
+          Pendiente hecho
+        </button>
+      </section>
+    </main>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
