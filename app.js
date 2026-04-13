@@ -1,6 +1,64 @@
 (function () {
   "use strict";
 
+  /* ── Login ── */
+
+  const VALID_USER = "machapa";
+  const VALID_PASS = "machapa1";
+
+  const loginOverlay = document.getElementById("login-overlay");
+  const loginForm = document.getElementById("login-form");
+  const loginUser = document.getElementById("login-user");
+  const loginPass = document.getElementById("login-pass");
+  const loginError = document.getElementById("login-error");
+  const appContainer = document.getElementById("app-container");
+  const btnTogglePass = document.getElementById("btn-toggle-pass");
+  const eyeIcon = document.getElementById("eye-icon");
+
+  btnTogglePass.addEventListener("click", () => {
+    const isPassword = loginPass.type === "password";
+    loginPass.type = isPassword ? "text" : "password";
+    eyeIcon.textContent = isPassword ? "🙈" : "👁️";
+    btnTogglePass.setAttribute(
+      "aria-label",
+      isPassword ? "Ocultar contraseña" : "Mostrar contraseña"
+    );
+  });
+
+  loginForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const user = loginUser.value.trim();
+    const pass = loginPass.value;
+
+    if (user === VALID_USER && pass === VALID_PASS) {
+      loginOverlay.hidden = true;
+      appContainer.hidden = false;
+      loginUser.classList.remove("input-error");
+      loginPass.classList.remove("input-error");
+      initApp();
+    } else {
+      loginError.hidden = false;
+      loginUser.classList.add("input-error");
+      loginPass.classList.add("input-error");
+      loginPass.value = "";
+      loginPass.focus();
+    }
+  });
+
+  loginUser.addEventListener("input", () => {
+    loginError.hidden = true;
+    loginUser.classList.remove("input-error");
+    loginPass.classList.remove("input-error");
+  });
+
+  loginPass.addEventListener("input", () => {
+    loginError.hidden = true;
+    loginUser.classList.remove("input-error");
+    loginPass.classList.remove("input-error");
+  });
+
+  function initApp() {
+
   const COLORS = [
     "#3d9cf5",
     "#a78bfa",
@@ -465,4 +523,6 @@
 
   drawWheel();
   renderList();
+
+  } // end initApp
 })();
