@@ -10,8 +10,34 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+  <!-- Login Screen -->
+  <div class="login-overlay" id="login-overlay">
+    <div class="login-card">
+      <div class="login-icon" aria-hidden="true">🎯</div>
+      <h1 class="login-title">Ruleta de pendientes</h1>
+      <p class="login-subtitle">Inicia sesión para continuar</p>
+      <form class="login-form" id="login-form" autocomplete="off">
+        <div class="login-field">
+          <label for="login-user">Usuario</label>
+          <input id="login-user" type="text" placeholder="Tu usuario" required />
+        </div>
+        <div class="login-field">
+          <label for="login-pass">Contraseña</label>
+          <div class="password-wrapper">
+            <input id="login-pass" type="password" placeholder="Tu contraseña" required />
+            <button type="button" class="btn-toggle-pass" id="btn-toggle-pass" aria-label="Mostrar contraseña">
+              <span class="eye-icon" id="eye-icon">👁️</span>
+            </button>
+          </div>
+        </div>
+        <p class="login-error" id="login-error" role="alert" hidden>Usuario o contraseña incorrectos.</p>
+        <button type="submit" class="btn btn-login">Entrar</button>
+      </form>
+    </div>
+  </div>
+
   <a class="skip-link" href="#contenido-principal">Saltar al contenido</a>
-  <div class="app">
+  <div class="app" id="app-container" hidden>
     <header class="header">
       <p class="eyebrow">Ruleta de pendientes</p>
       <h1>¿Por dónde empiezo?</h1>
