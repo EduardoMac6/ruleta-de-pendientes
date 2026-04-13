@@ -10,17 +10,18 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+  <a class="skip-link" href="#contenido-principal">Saltar al contenido</a>
   <div class="app">
     <header class="header">
       <p class="eyebrow">Ruleta de pendientes</p>
       <h1>¿Por dónde empiezo?</h1>
       <p class="subtitle">
         Para cuando tienes mil cosas encima y no sabes por cuál tirar: anótalo todo, gira y deja que salga tu
-        <strong>primer paso</strong>.
+        <strong>primer paso</strong>. A veces, al parar, te cae un <strong>plot twist</strong> cagado en vez de un pendiente.
       </p>
     </header>
 
-    <main class="main">
+    <main class="main" id="contenido-principal">
       <section class="panel" aria-labelledby="panel-inputs">
         <h2 id="panel-inputs" class="panel-title">Tu lista de pendientes</h2>
         <form class="add-form" id="add-form" autocomplete="off">
@@ -35,6 +36,7 @@
         </form>
         <ul class="activity-list" id="activity-list" aria-live="polite"></ul>
         <p class="hint" id="list-hint">Hacen falta al menos 2 pendientes para girar.</p>
+
         <button type="button" class="btn btn-primary btn-spin" id="btn-spin" disabled>
           Elegir por mí
         </button>
@@ -49,6 +51,21 @@
           </div>
           <div class="wheel-tooltip" id="wheel-tooltip" role="tooltip" hidden></div>
         </div>
+        <figure
+          class="respiro-visual"
+          id="respiro-visual"
+          hidden
+          aria-hidden="true"
+        >
+          <img
+            id="respiro-img"
+            class="respiro-img"
+            alt=""
+            width="280"
+            height="280"
+            decoding="async"
+          />
+        </figure>
         <div class="result" id="result" role="status" aria-live="assertive"></div>
         <button type="button" class="btn btn-done" id="btn-done" hidden>
           Pendiente hecho
