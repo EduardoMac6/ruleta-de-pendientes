@@ -1,0 +1,7 @@
+{
+  "name": "ruleta-de-pendientes",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/write-config.mjs"
+  }
+}
