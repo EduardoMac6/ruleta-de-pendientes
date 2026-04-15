@@ -1,64 +1,463 @@
-(function () {
-  "use strict";
+import {
+  observeAuthChanges,
+  sendPasswordReset,
+  signInWithEmail,
+  signOut,
+  signUpWithEmail,
+} from "./auth.js";
+import { formatProfileError, getMyProfile, updateMyProfile } from "./profile.js";
+import {
+  addActivityEvent,
+  formatActivityError,
+  getMyActivityEvents,
+  getMyActivityScore,
+} from "./activity.js";
+import { isSupabaseConfigured, supabase } from "./supabase-client.js";
 
-  /* ── Login ── */
+const GUEST_LS_KEY = "ruleta_guest_activities";
 
-  const VALID_USER = "machapa";
-  const VALID_PASS = "machapa1";
+const authModal = document.getElementById("auth-modal");
+const authClose = document.getElementById("auth-close");
+const authError = document.getElementById("auth-error");
+const authInfo = document.getElementById("auth-info");
+const authSupabaseHint = document.getElementById("auth-supabase-hint");
+const authTabSignin = document.getElementById("auth-tab-signin");
+const authTabSignup = document.getElementById("auth-tab-signup");
+const authPanelSignin = document.getElementById("auth-panel-signin");
+const authPanelSignup = document.getElementById("auth-panel-signup");
+const formSignin = document.getElementById("form-signin");
+const formSignup = document.getElementById("form-signup");
+const authEmailIn = document.getElementById("auth-email-in");
+const authPassIn = document.getElementById("auth-pass-in");
+const authForgotPass = document.getElementById("auth-forgot-pass");
+const authEmailUp = document.getElementById("auth-email-up");
+const authPassUp = document.getElementById("auth-pass-up");
+const authDisplayUp = document.getElementById("auth-display-up");
+const btnTogglePassIn = document.getElementById("btn-toggle-pass-in");
+const eyeIconIn = document.getElementById("eye-icon-in");
+const btnTogglePassUp = document.getElementById("btn-toggle-pass-up");
+const eyeIconUp = document.getElementById("eye-icon-up");
 
-  const loginOverlay = document.getElementById("login-overlay");
-  const loginForm = document.getElementById("login-form");
-  const loginUser = document.getElementById("login-user");
-  const loginPass = document.getElementById("login-pass");
-  const loginError = document.getElementById("login-error");
-  const appContainer = document.getElementById("app-container");
-  const btnTogglePass = document.getElementById("btn-toggle-pass");
-  const eyeIcon = document.getElementById("eye-icon");
+const btnOpenSignin = document.getElementById("btn-open-signin");
+const btnOpenSignup = document.getElementById("btn-open-signup");
+const btnSignOut = document.getElementById("btn-sign-out");
+const accountStatus = document.getElementById("account-status");
+const accountEmail = document.getElementById("account-email");
+const accountScoreWrap = document.getElementById("account-score-wrap");
+const scoreValue = document.getElementById("score-value");
+const historyDetails = document.getElementById("history-details");
+const historyList = document.getElementById("history-list");
+const historyEmpty = document.getElementById("history-empty");
+const sessionLocalBanner = document.getElementById("session-local-banner");
+const accountCloudMsg = document.getElementById("account-cloud-msg");
 
-  btnTogglePass.addEventListener("click", () => {
-    const isPassword = loginPass.type === "password";
-    loginPass.type = isPassword ? "text" : "password";
-    eyeIcon.textContent = isPassword ? "🙈" : "👁️";
-    btnTogglePass.setAttribute(
-      "aria-label",
-      isPassword ? "Ocultar contraseña" : "Mostrar contraseña"
-    );
-  });
+const profileCard = document.getElementById("profile-card");
+const profileDisplayInput = document.getElementById("profile-display-input");
+const profileSaveBtn = document.getElementById("profile-save-btn");
+const profileMsg = document.getElementById("profile-msg");
 
-  loginForm.addEventListener("submit", (e) => {
-    e.preventDefault();
-    const user = loginUser.value.trim();
-    const pass = loginPass.value;
+/** @type {{ user: { id: string; email?: string | null } } | null} */
+let currentSession = null;
+let showedLocalBannerForSession = false;
 
-    if (user === VALID_USER && pass === VALID_PASS) {
-      loginOverlay.hidden = true;
-      appContainer.hidden = false;
-      loginUser.classList.remove("input-error");
-      loginPass.classList.remove("input-error");
-      initApp();
+function setAuthError(msg) {
+  if (!msg) {
+    authError.hidden = true;
+    authError.textContent = "";
+    return;
+  }
+  authError.hidden = false;
+  authError.textContent = msg;
+}
+
+function setAuthInfo(msg) {
+  if (!msg) {
+    authInfo.hidden = true;
+    authInfo.textContent = "";
+    return;
+  }
+  authInfo.hidden = false;
+  authInfo.textContent = msg;
+}
+
+function setCloudMsg(msg) {
+  if (!accountCloudMsg) return;
+  if (!msg) {
+    accountCloudMsg.hidden = true;
+    accountCloudMsg.textContent = "";
+    return;
+  }
+  accountCloudMsg.hidden = false;
+  accountCloudMsg.textContent = msg;
+}
+
+function setProfileMsg(msg, isError) {
+  if (!profileMsg) return;
+  if (!msg) {
+    profileMsg.hidden = true;
+    profileMsg.textContent = "";
+    profileMsg.classList.remove("is-error", "is-success");
+    return;
+  }
+  profileMsg.hidden = false;
+  profileMsg.textContent = msg;
+  profileMsg.classList.toggle("is-error", Boolean(isError));
+  profileMsg.classList.toggle("is-success", !isError);
+}
+
+function showSessionLocalBanner() {
+  if (!currentSession || showedLocalBannerForSession) return;
+  showedLocalBannerForSession = true;
+  sessionLocalBanner.textContent =
+    "Tus pendientes en este dispositivo se guardan solo aquí (modo invitado). La puntuación y el historial van con tu cuenta en la nube.";
+  sessionLocalBanner.hidden = false;
+}
+
+function loadGuestActivitiesFromStorage() {
+  try {
+    const raw = localStorage.getItem(GUEST_LS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((x) => typeof x === "string" && x.trim()).map((x) => x.slice(0, 120));
+  } catch {
+    return [];
+  }
+}
+
+function saveGuestActivitiesToStorage(activities) {
+  if (currentSession) return;
+  try {
+    localStorage.setItem(GUEST_LS_KEY, JSON.stringify(activities));
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * @param {string} text
+ * @returns {string}
+ */
+function truncateLabel(text) {
+  const t = (text || "").trim();
+  return t.length > 120 ? t.slice(0, 117) + "…" : t;
+}
+
+/**
+ * @param {string} eventType
+ * @param {Record<string, unknown>} payload
+ */
+async function logActivityEvent(eventType, payload) {
+  if (!supabase || !currentSession?.user?.id) return;
+  const { error } = await addActivityEvent(eventType, payload || {});
+  if (error) {
+    setCloudMsg(formatActivityError(error));
+  } else {
+    setCloudMsg("");
+  }
+  await loadHistoryAndScore();
+}
+
+/**
+ * @param {string} eventType
+ * @param {Record<string, unknown>} payload
+ */
+function formatHistoryLine(eventType, payload) {
+  const pl = payload && typeof payload === "object" ? payload : {};
+  const label = typeof pl.label === "string" ? pl.label : "";
+  const respiro = pl.respiro === true;
+  switch (eventType) {
+    case "spin":
+      return respiro ? "Giro — plot twist" : `Giro — pendiente${label ? `: ${truncateLabel(label)}` : ""}`;
+    case "respiro_shown":
+      return pl.text ? `Plot twist: ${truncateLabel(String(pl.text))}` : "Plot twist mostrado";
+    case "task_completed":
+      return `Hecho: ${truncateLabel(label) || "(pendiente)"}`;
+    case "task_added":
+      return `Añadido: ${truncateLabel(label)}`;
+    case "task_removed":
+      return `Quitado: ${truncateLabel(label)}`;
+    default:
+      return eventType;
+  }
+}
+
+async function loadHistoryAndScore() {
+  if (!supabase || !currentSession?.user?.id) {
+    scoreValue.textContent = "0";
+    accountScoreWrap.hidden = true;
+    historyDetails.hidden = true;
+    historyList.innerHTML = "";
+    historyEmpty.hidden = true;
+    setCloudMsg("");
+    return;
+  }
+
+  scoreValue.textContent = "…";
+  const [histRes, scoreRes] = await Promise.all([getMyActivityEvents(50), getMyActivityScore()]);
+  const cloudParts = [];
+
+  if (histRes.error) {
+    cloudParts.push(formatActivityError(histRes.error));
+    historyList.innerHTML = "";
+    historyEmpty.hidden = false;
+    historyEmpty.textContent = "No se pudo cargar el historial.";
+  } else {
+    const rows = histRes.data || [];
+    historyList.innerHTML = "";
+    if (rows.length === 0) {
+      historyEmpty.hidden = false;
+      historyEmpty.textContent = "Aún no hay eventos registrados.";
     } else {
-      loginError.hidden = false;
-      loginUser.classList.add("input-error");
-      loginPass.classList.add("input-error");
-      loginPass.value = "";
-      loginPass.focus();
+      historyEmpty.hidden = true;
+      for (const row of rows) {
+        const li = document.createElement("li");
+        li.className = "history-item";
+        const time = document.createElement("time");
+        time.className = "history-time";
+        time.dateTime = row.created_at || "";
+        time.textContent = row.created_at
+          ? new Date(row.created_at).toLocaleString("es", {
+              dateStyle: "short",
+              timeStyle: "short",
+            })
+          : "";
+        const desc = document.createElement("span");
+        desc.className = "history-desc";
+        desc.textContent = formatHistoryLine(row.event_type, row.payload || {});
+        li.append(time, desc);
+        historyList.appendChild(li);
+      }
     }
+  }
+
+  if (scoreRes.error) {
+    scoreValue.textContent = "—";
+    cloudParts.push(scoreRes.error.message || "No se pudo cargar la puntuación (RPC).");
+  } else {
+    scoreValue.textContent = String(scoreRes.score ?? 0);
+  }
+  setCloudMsg(cloudParts.filter(Boolean).join(" "));
+  accountScoreWrap.hidden = false;
+  historyDetails.hidden = false;
+}
+
+async function refreshProfileFields() {
+  if (!profileCard || !profileDisplayInput) return;
+  if (!currentSession?.user) {
+    profileCard.hidden = true;
+    setProfileMsg("", false);
+    return;
+  }
+  profileCard.hidden = false;
+  const { data, error } = await getMyProfile();
+  if (error) {
+    profileDisplayInput.value = "";
+    setProfileMsg(formatProfileError(error), true);
+    return;
+  }
+  setProfileMsg("", false);
+  profileDisplayInput.value = (data?.display_name || "").trim();
+}
+
+function updateAccountChrome() {
+  const hasClient = Boolean(supabase);
+  if (!isSupabaseConfigured || !hasClient) {
+    authSupabaseHint.hidden = false;
+    btnOpenSignin.disabled = true;
+    btnOpenSignup.disabled = true;
+    btnSignOut.hidden = true;
+    accountStatus.textContent = "Modo invitado (sin Supabase)";
+    accountEmail.hidden = true;
+    accountScoreWrap.hidden = true;
+    historyDetails.hidden = true;
+    if (profileCard) profileCard.hidden = true;
+    setCloudMsg("");
+    return;
+  }
+
+  authSupabaseHint.hidden = true;
+  btnOpenSignin.disabled = false;
+  btnOpenSignup.disabled = false;
+
+  if (currentSession?.user) {
+    accountStatus.textContent = "Sesión iniciada";
+    accountEmail.hidden = false;
+    accountEmail.textContent = currentSession.user.email || "Cuenta";
+    btnOpenSignin.hidden = true;
+    btnOpenSignup.hidden = true;
+    btnSignOut.hidden = false;
+  } else {
+    accountStatus.textContent = "Modo invitado";
+    accountEmail.hidden = true;
+    accountEmail.textContent = "";
+    btnOpenSignin.hidden = false;
+    btnOpenSignup.hidden = false;
+    btnSignOut.hidden = true;
+    accountScoreWrap.hidden = true;
+    historyDetails.hidden = true;
+    if (profileCard) profileCard.hidden = true;
+  }
+}
+
+function openAuthModal(mode) {
+  if (!supabase) return;
+  setAuthError("");
+  setAuthInfo("");
+  if (mode === "signup") {
+    switchAuthTab("signup");
+  } else {
+    switchAuthTab("signin");
+  }
+  if (authModal && typeof authModal.showModal === "function") {
+    authModal.showModal();
+    if (mode === "signup") authEmailUp.focus();
+    else authEmailIn.focus();
+  }
+}
+
+function closeAuthModal() {
+  if (authModal && authModal.open) authModal.close();
+}
+
+/**
+ * @param {"signin" | "signup"} tab
+ */
+function switchAuthTab(tab) {
+  const isSignup = tab === "signup";
+  authTabSignin.classList.toggle("is-active", !isSignup);
+  authTabSignup.classList.toggle("is-active", isSignup);
+  authTabSignin.setAttribute("aria-selected", isSignup ? "false" : "true");
+  authTabSignup.setAttribute("aria-selected", isSignup ? "true" : "false");
+  authPanelSignin.hidden = isSignup;
+  authPanelSignup.hidden = !isSignup;
+}
+
+function wirePasswordToggle(btn, input, eyeEl) {
+  btn.addEventListener("click", () => {
+    const isPassword = input.type === "password";
+    input.type = isPassword ? "text" : "password";
+    eyeEl.textContent = isPassword ? "🙈" : "👁️";
+    btn.setAttribute("aria-label", isPassword ? "Ocultar contraseña" : "Mostrar contraseña");
   });
+}
 
-  loginUser.addEventListener("input", () => {
-    loginError.hidden = true;
-    loginUser.classList.remove("input-error");
-    loginPass.classList.remove("input-error");
+wirePasswordToggle(btnTogglePassIn, authPassIn, eyeIconIn);
+wirePasswordToggle(btnTogglePassUp, authPassUp, eyeIconUp);
+
+authClose.addEventListener("click", closeAuthModal);
+authModal.addEventListener("cancel", (e) => {
+  e.preventDefault();
+  closeAuthModal();
+});
+
+authTabSignin.addEventListener("click", () => switchAuthTab("signin"));
+authTabSignup.addEventListener("click", () => switchAuthTab("signup"));
+
+btnOpenSignin.addEventListener("click", () => openAuthModal("signin"));
+btnOpenSignup.addEventListener("click", () => openAuthModal("signup"));
+
+formSignin.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  setAuthError("");
+  setAuthInfo("");
+  if (!supabase) {
+    setAuthError(
+      "Supabase no está configurado: abre config.js junto a index.html y pega SUPABASE_URL y SUPABASE_ANON_KEY (copia desde config.example.js)."
+    );
+    return;
+  }
+  const email = authEmailIn.value.trim();
+  const password = authPassIn.value;
+  const { error } = await signInWithEmail(email, password);
+  if (error) {
+    setAuthError(error.message || "No se pudo iniciar sesión.");
+    return;
+  }
+  closeAuthModal();
+});
+
+formSignup.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  setAuthError("");
+  setAuthInfo("");
+  if (!supabase) {
+    setAuthError(
+      "Supabase no está configurado: abre config.js junto a index.html y pega SUPABASE_URL y SUPABASE_ANON_KEY (copia desde config.example.js)."
+    );
+    return;
+  }
+  const email = authEmailUp.value.trim();
+  const password = authPassUp.value;
+  const displayName = authDisplayUp ? authDisplayUp.value : "";
+  const { error, infoMessage } = await signUpWithEmail(email, password, displayName);
+  if (error) {
+    setAuthError(error.message || "No se pudo crear la cuenta.");
+    return;
+  }
+  if (infoMessage) {
+    setAuthInfo(infoMessage);
+    return;
+  }
+  setAuthInfo("Cuenta lista. Ya puedes usar el perfil.");
+  closeAuthModal();
+});
+
+if (authForgotPass) {
+  authForgotPass.addEventListener("click", async () => {
+    if (!supabase) return;
+    setAuthError("");
+    setAuthInfo("");
+    const email = authEmailIn.value.trim();
+    if (!email) {
+      setAuthError("Escribe tu correo arriba para enviarte el enlace de restablecimiento.");
+      return;
+    }
+    const { error } = await sendPasswordReset(email);
+    if (error) {
+      setAuthError(error.message || "No se pudo enviar el correo.");
+      return;
+    }
+    setAuthInfo("Si existe una cuenta con ese correo, recibirás un enlace para restablecer la contraseña.");
   });
+}
 
-  loginPass.addEventListener("input", () => {
-    loginError.hidden = true;
-    loginUser.classList.remove("input-error");
-    loginPass.classList.remove("input-error");
+btnSignOut.addEventListener("click", async () => {
+  if (!supabase) return;
+  showedLocalBannerForSession = false;
+  sessionLocalBanner.hidden = true;
+  setCloudMsg("");
+  setProfileMsg("", false);
+  await signOut();
+  if (typeof rouletteApi.reloadGuestList === "function") rouletteApi.reloadGuestList();
+});
+
+[authEmailIn, authPassIn, authEmailUp, authPassUp, authDisplayUp].forEach((el) => {
+  if (el)
+    el.addEventListener("input", () => {
+      setAuthError("");
+      setAuthInfo("");
+    });
+});
+
+if (profileSaveBtn && profileDisplayInput) {
+  profileSaveBtn.addEventListener("click", async () => {
+    setProfileMsg("");
+    profileSaveBtn.disabled = true;
+    const { error } = await updateMyProfile(profileDisplayInput.value);
+    profileSaveBtn.disabled = false;
+    if (error) {
+      setProfileMsg(formatProfileError(error), true);
+      return;
+    }
+    setProfileMsg("Nombre guardado.", false);
   });
+}
 
-  function initApp() {
+/** Roulette + list */
+let rouletteApi = { reloadGuestList: () => {} };
 
+function initRoulette() {
   const COLORS = [
     "#3d9cf5",
     "#a78bfa",
@@ -72,13 +471,8 @@
     "#60a5fa",
   ];
 
-  /** Probabilidad de que, al parar el giro, salga un permiso en lugar de un pendiente. */
   const RESPIRO_CHANCE = 0.22;
 
-  /**
-   * Plot twists: texto + GIF (misma entrada = mismo par). Los GIFs son URLs directas;
-   * puedes sustituir por archivos locales: `src: "assets/mi-meme.gif"`.
-   */
   const RESPIRO_ITEMS = [
     {
       text: "Ve por esa chela. La lista aguanta; tú no tanto.",
@@ -157,11 +551,15 @@
     respiroImg: document.getElementById("respiro-img"),
   };
 
-  /** @type {number} */
   let lastRespiroIndex = -1;
 
-  /** @type {string[]} */
-  let activities = [];
+  /**
+   * Lista en memoria: invitado + localStorage; con sesión, solo memoria (sin sync remoto).
+   * Siguiente paso: tabla tipo public.tasks con RLS y reemplazar esta fuente por lectura/escritura Supabase.
+   * @type {string[]}
+   */
+  let activities = currentSession?.user ? [] : loadGuestActivitiesFromStorage();
+
   let rotationDeg = 0;
   let spinning = false;
   let animId = null;
@@ -171,21 +569,17 @@
   let pendingDoneText = "";
 
   const ctx = els.canvas.getContext("2d");
-  const prefersReducedMotion = window.matchMedia(
-    "(prefers-reduced-motion: reduce)"
-  ).matches;
+  const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  /**
-   * WCAG relative luminance for sRGB hex (e.g. #rrggbb).
-   * @param {string} hex
-   * @returns {number} 0–1
-   */
+  function persistListIfGuest() {
+    saveGuestActivitiesToStorage(activities);
+  }
+
   function relLuminance(hex) {
     const r = parseInt(hex.slice(1, 3), 16) / 255;
     const g = parseInt(hex.slice(3, 5), 16) / 255;
     const b = parseInt(hex.slice(5, 7), 16) / 255;
-    const lin = (c) =>
-      c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    const lin = (c) => (c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
     return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
   }
 
@@ -278,11 +672,14 @@
       rm.textContent = "Quitar";
       rm.addEventListener("click", () => {
         if (spinning) return;
+        const removed = activities[index];
         activities.splice(index, 1);
         clearPendingDone();
         renderList();
         drawWheel();
         syncSpinState();
+        persistListIfGuest();
+        void logActivityEvent("task_removed", { label: truncateLabel(removed) });
       });
       li.append(num, span, rm);
       els.list.appendChild(li);
@@ -298,10 +695,6 @@
     els.tooltip.style.top = "";
   }
 
-  /**
-   * @param {number} clientX
-   * @param {number} clientY
-   */
   function updateWheelTooltip(clientX, clientY) {
     if (spinning || activities.length === 0) {
       hideWheelTooltip();
@@ -385,6 +778,7 @@
 
   function completePendingTask() {
     if (pendingDoneIndex === null || !pendingDoneText) return;
+    const doneLabel = pendingDoneText;
     const idx =
       activities[pendingDoneIndex] === pendingDoneText
         ? pendingDoneIndex
@@ -397,6 +791,8 @@
     renderList();
     drawWheel();
     syncSpinState();
+    persistListIfGuest();
+    void logActivityEvent("task_completed", { label: truncateLabel(doneLabel) });
   }
 
   function syncSpinState() {
@@ -417,15 +813,12 @@
     if (spinning || activities.length < 2) return;
 
     const n = activities.length;
-    const useRespiro =
-      RESPIRO_ITEMS.length > 0 && Math.random() < RESPIRO_CHANCE;
+    const useRespiro = RESPIRO_ITEMS.length > 0 && Math.random() < RESPIRO_CHANCE;
     const winnerIndex = Math.floor(Math.random() * n);
     const sliceDeg = 360 / n;
     const margin = sliceDeg * 0.12;
     const landAngle =
-      winnerIndex * sliceDeg +
-      margin +
-      Math.random() * (sliceDeg - 2 * margin);
+      winnerIndex * sliceDeg + margin + Math.random() * (sliceDeg - 2 * margin);
     let spinAmount = ((-landAngle - rotationDeg) % 360 + 360) % 360;
     const minTurns = prefersReducedMotion ? 1 : 6;
     while (spinAmount < 360 * minTurns) spinAmount += 360;
@@ -442,9 +835,7 @@
 
     const start = rotationDeg;
     const end = rotationDeg + spinAmount;
-    const duration = prefersReducedMotion
-      ? 380 + Math.random() * 220
-      : 4800 + Math.random() * 800;
+    const duration = prefersReducedMotion ? 380 + Math.random() * 220 : 4800 + Math.random() * 800;
     const t0 = performance.now();
 
     if (animId) cancelAnimationFrame(animId);
@@ -469,6 +860,8 @@
           els.result.textContent = "Plot twist — " + item.text;
           showRespiroVisual(item.src);
           els.btnDone.hidden = true;
+          void logActivityEvent("spin", { respiro: true });
+          void logActivityEvent("respiro_shown", { text: truncateLabel(item.text) });
         } else {
           els.result.classList.remove("is-respiro");
           hideRespiroVisual();
@@ -477,6 +870,7 @@
           pendingDoneIndex = winnerIndex;
           pendingDoneText = won;
           els.btnDone.hidden = false;
+          void logActivityEvent("spin", { respiro: false, label: truncateLabel(won) });
         }
         syncSpinState();
       }
@@ -489,15 +883,14 @@
     e.preventDefault();
     const v = els.input.value.trim();
     if (!v || spinning) return;
-    activities.push(v);
+    activities.push(v.slice(0, 120));
     els.input.value = "";
     renderList();
     drawWheel();
+    persistListIfGuest();
+    void logActivityEvent("task_added", { label: truncateLabel(v) });
   });
 
-  /**
-   * @returns {{ text: string, src: string }}
-   */
   function pickRespiroItem() {
     const n = RESPIRO_ITEMS.length;
     if (n === 0) return { text: "", src: "" };
@@ -524,5 +917,61 @@
   drawWheel();
   renderList();
 
-  } // end initApp
-})();
+  return {
+    reloadGuestList() {
+      if (currentSession) return;
+      activities = loadGuestActivitiesFromStorage();
+      clearPendingDone();
+      hideRespiroVisual();
+      els.result.textContent = "";
+      els.result.classList.remove("is-respiro");
+      rotationDeg = 0;
+      els.canvas.style.transform = "rotate(0deg)";
+      renderList();
+      drawWheel();
+      syncSpinState();
+    },
+  };
+}
+
+async function applyAuthSession(session) {
+  currentSession = session;
+  updateAccountChrome();
+  if (session?.user) {
+    showSessionLocalBanner();
+    await refreshProfileFields();
+    await loadHistoryAndScore();
+  } else {
+    showedLocalBannerForSession = false;
+    sessionLocalBanner.hidden = true;
+    if (profileCard) profileCard.hidden = true;
+    await loadHistoryAndScore();
+  }
+}
+
+let rouletteBootstrapped = false;
+
+function ensureRoulette() {
+  if (rouletteBootstrapped) return;
+  rouletteBootstrapped = true;
+  rouletteApi = initRoulette();
+}
+
+if (supabase) {
+  observeAuthChanges((event, session) => {
+    void (async () => {
+      await applyAuthSession(session);
+      if (event === "INITIAL_SESSION") {
+        ensureRoulette();
+      } else if (event === "SIGNED_OUT") {
+        showedLocalBannerForSession = false;
+        sessionLocalBanner.hidden = true;
+        if (typeof rouletteApi.reloadGuestList === "function") rouletteApi.reloadGuestList();
+      }
+    })();
+  });
+} else {
+  updateAccountChrome();
+  void loadHistoryAndScore();
+  ensureRoulette();
+}

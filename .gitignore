@@ -1,3 +1,8 @@
 .DS_Store
 Thumbs.db
 *.log
+config.js
+
+# Cursor / agent skills (local only)
+.agents/
+skills-lock.json
