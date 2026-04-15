@@ -8,15 +8,6 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
-  <!-- Copia config.example.js como config.js con tu URL y anon key de Supabase (opcional para modo invitado). -->
-  <script src="config.js"></script>
-  <script>
-    window.__RULETA_CONFIG__ = window.__RULETA_CONFIG__ || {
-      supabaseUrl: "",
-      supabaseAnonKey: "",
-    };
-  </script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
   <dialog id="auth-modal" class="auth-modal" aria-labelledby="auth-dialog-title">
@@ -25,7 +16,8 @@
       <div class="login-icon" aria-hidden="true">🎯</div>
       <h2 id="auth-dialog-title" class="login-title">Tu cuenta</h2>
       <p class="login-subtitle" id="auth-supabase-hint" hidden>
-        Añade <code class="auth-code">config.js</code> con la URL y la clave anónima de Supabase para usar el perfil.
+        Copia <code class="auth-code">config.example.js</code> como <code class="auth-code">config.js</code> y pega
+        <code class="auth-code">SUPABASE_URL</code> y <code class="auth-code">SUPABASE_ANON_KEY</code> del panel de Supabase.
       </p>
       <div class="auth-tabs" role="tablist" aria-label="Tipo de acceso">
         <button type="button" class="auth-tab is-active" id="auth-tab-signin" role="tab" aria-selected="true" aria-controls="auth-panel-signin">Iniciar sesión</button>
@@ -48,6 +40,11 @@
               </button>
             </div>
           </div>
+          <p class="auth-forgot-wrap">
+            <button type="button" class="btn-auth-link" id="auth-forgot-pass">
+              ¿Olvidaste tu contraseña?
+            </button>
+          </p>
           <button type="submit" class="btn btn-login">Entrar</button>
         </form>
       </div>
@@ -65,6 +62,10 @@
                 <span class="eye-icon" id="eye-icon-up">👁️</span>
               </button>
             </div>
+          </div>
+          <div class="login-field">
+            <label for="auth-display-up">Nombre para mostrar <span class="optional-label">(opcional)</span></label>
+            <input id="auth-display-up" name="display_name" type="text" autocomplete="nickname" maxlength="120" placeholder="Ej.: Lupita" />
           </div>
           <button type="submit" class="btn btn-login">Registrarme</button>
         </form>
@@ -90,6 +91,23 @@
           <button type="button" class="btn btn-secondary btn-sm" id="btn-sign-out" hidden>Cerrar sesión</button>
         </div>
       </div>
+      <p class="account-cloud-msg" id="account-cloud-msg" role="status" hidden></p>
+      <section class="profile-card" id="profile-card" hidden aria-labelledby="profile-heading">
+        <h3 id="profile-heading" class="profile-heading">Tu perfil</h3>
+        <div class="profile-row">
+          <label class="sr-only" for="profile-display-input">Nombre para mostrar</label>
+          <input
+            id="profile-display-input"
+            type="text"
+            class="profile-input"
+            maxlength="120"
+            placeholder="Tu nombre en la app"
+            autocomplete="nickname"
+          />
+          <button type="button" class="btn btn-secondary btn-sm" id="profile-save-btn">Guardar nombre</button>
+        </div>
+        <p class="profile-msg" id="profile-msg" role="status" hidden></p>
+      </section>
       <details class="history-details" id="history-details" hidden>
         <summary class="history-summary">Historial de actividad</summary>
         <ul class="history-list" id="history-list" aria-live="polite"></ul>
@@ -157,9 +175,9 @@
     </main>
 
     <footer class="site-footer">
-      <p>V.2.2</p>
+      <p>V.2.3</p>
     </footer>
   </div>
-  <script src="app.js"></script>
+  <script type="module" src="app.js"></script>
 </body>
 </html>
