@@ -63,3 +63,4 @@ export async function updateMyProfile(display_name) {
 
   return { data, error };
 }
+

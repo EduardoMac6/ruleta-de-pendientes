@@ -7,14 +7,14 @@ App estática (HTML + JS + CSS) con cuenta Supabase: perfil, historial de activi
 | Ruta | Para qué sirve |
 |------|----------------|
 | `index.html` | Entrada; carga `app.js` como módulo |
-| `app.js` | UI, ruleta, cableado auth + perfil + historial |
+| `app.js` | UI principal y arranque de la app |
 | `styles.css` | Estilos |
-| `supabase-client.js` | Cliente Supabase (solo anon key) |
+| `js/supabase-client.js` | Cliente Supabase (solo anon key) |
 | `config.js` | **No está en git.** Credenciales locales o generado en Vercel |
 | `config.example.js` | Plantilla + notas de URLs (confirmación / reset) |
-| `auth.js` | Registro, login, logout, reset, `onAuthStateChange` |
-| `profile.js` | Tabla `public.profiles` |
-| `activity.js` | Tabla `activity_events` + RPC `user_activity_score` |
+| `js/auth.js` | Registro, login, logout, reset, `onAuthStateChange` |
+| `js/profile.js` | Tabla `public.profiles` |
+| `js/activity.js` | Tabla `activity_events` + RPC `user_activity_score` |
 | `scripts/write-config.mjs` | Build: escribe `config.js` en deploy (Vercel) |
 | `package.json` | `npm run build` → genera `config.js` |
 | `vercel.json` | Build + servir desde la raíz del proyecto |

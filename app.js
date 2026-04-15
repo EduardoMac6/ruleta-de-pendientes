@@ -4,15 +4,15 @@ import {
   signInWithEmail,
   signOut,
   signUpWithEmail,
-} from "./auth.js";
-import { formatProfileError, getMyProfile, updateMyProfile } from "./profile.js";
+} from "./js/auth.js";
+import { formatProfileError, getMyProfile, updateMyProfile } from "./js/profile.js";
 import {
   addActivityEvent,
   formatActivityError,
   getMyActivityEvents,
   getMyActivityScore,
-} from "./activity.js";
-import { isSupabaseConfigured, supabase } from "./supabase-client.js";
+} from "./js/activity.js";
+import { isSupabaseConfigured, supabase } from "./js/supabase-client.js";
 
 const GUEST_LS_KEY = "ruleta_guest_activities";
 

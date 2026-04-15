@@ -81,3 +81,4 @@ export async function getMyActivityScore() {
   const n = Number(data);
   return { score: Number.isFinite(n) ? n : null, error: null };
 }
+

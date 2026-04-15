@@ -107,3 +107,4 @@ export function observeAuthChanges(callback) {
   }
   return supabase.auth.onAuthStateChange(callback);
 }
+
