@@ -1,5 +1,4 @@
 import {
-  getVerifiedUser,
   observeAuthChanges,
   sendPasswordReset,
   signInWithEmail,
@@ -194,6 +193,7 @@ async function loadHistoryAndScore() {
     return;
   }
 
+  scoreValue.textContent = "…";
   const [histRes, scoreRes] = await Promise.all([getMyActivityEvents(50), getMyActivityScore()]);
   const cloudParts = [];
 
@@ -359,9 +359,14 @@ btnOpenSignup.addEventListener("click", () => openAuthModal("signup"));
 
 formSignin.addEventListener("submit", async (e) => {
   e.preventDefault();
-  if (!supabase) return;
   setAuthError("");
   setAuthInfo("");
+  if (!supabase) {
+    setAuthError(
+      "Supabase no está configurado: abre config.js junto a index.html y pega SUPABASE_URL y SUPABASE_ANON_KEY (copia desde config.example.js)."
+    );
+    return;
+  }
   const email = authEmailIn.value.trim();
   const password = authPassIn.value;
   const { error } = await signInWithEmail(email, password);
@@ -374,9 +379,14 @@ formSignin.addEventListener("submit", async (e) => {
 
 formSignup.addEventListener("submit", async (e) => {
   e.preventDefault();
-  if (!supabase) return;
   setAuthError("");
   setAuthInfo("");
+  if (!supabase) {
+    setAuthError(
+      "Supabase no está configurado: abre config.js junto a index.html y pega SUPABASE_URL y SUPABASE_ANON_KEY (copia desde config.example.js)."
+    );
+    return;
+  }
   const email = authEmailUp.value.trim();
   const password = authPassUp.value;
   const displayName = authDisplayUp ? authDisplayUp.value : "";
@@ -423,7 +433,11 @@ btnSignOut.addEventListener("click", async () => {
 });
 
 [authEmailIn, authPassIn, authEmailUp, authPassUp, authDisplayUp].forEach((el) => {
-  if (el) el.addEventListener("input", () => setAuthError(""));
+  if (el)
+    el.addEventListener("input", () => {
+      setAuthError("");
+      setAuthInfo("");
+    });
 });
 
 if (profileSaveBtn && profileDisplayInput) {
@@ -945,19 +959,16 @@ function ensureRoulette() {
 
 if (supabase) {
   observeAuthChanges((event, session) => {
-    void applyAuthSession(session);
-    if (event === "INITIAL_SESSION") {
-      ensureRoulette();
-    } else if (event === "SIGNED_OUT") {
-      showedLocalBannerForSession = false;
-      sessionLocalBanner.hidden = true;
-      if (typeof rouletteApi.reloadGuestList === "function") rouletteApi.reloadGuestList();
-    }
-  });
-
-  supabase.auth.getSession().then(({ data: { session } }) => {
-    void applyAuthSession(session);
-    ensureRoulette();
+    void (async () => {
+      await applyAuthSession(session);
+      if (event === "INITIAL_SESSION") {
+        ensureRoulette();
+      } else if (event === "SIGNED_OUT") {
+        showedLocalBannerForSession = false;
+        sessionLocalBanner.hidden = true;
+        if (typeof rouletteApi.reloadGuestList === "function") rouletteApi.reloadGuestList();
+      }
+    })();
   });
 } else {
   updateAccountChrome();

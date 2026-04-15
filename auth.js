@@ -57,10 +57,16 @@ export async function signInWithEmail(email, password) {
     return { user: null, session: null, error };
   }
   const verified = await getVerifiedUser();
+  if (verified.user) {
+    return { user: verified.user, session: data.session, error: null };
+  }
+  if (data.session && data.user) {
+    return { user: data.user, session: data.session, error: null };
+  }
   return {
-    user: verified.user ?? data.user,
+    user: null,
     session: data.session,
-    error: verified.error,
+    error: verified.error ?? /** @type {any} */ (new Error("No se pudo verificar la sesión. Vuelve a intentar.")),
   };
 }
 
@@ -69,15 +75,6 @@ export async function signOut() {
     return { error: /** @type {any} */ (noClientError()) };
   }
   return supabase.auth.signOut();
-}
-
-/** Usuario de la sesión local (rápido; puede estar desactualizado). */
-export async function getCurrentUser() {
-  if (!supabase) {
-    return { user: null, error: /** @type {any} */ (noClientError()) };
-  }
-  const { data, error } = await supabase.auth.getSession();
-  return { user: data.session?.user ?? null, error };
 }
 
 /** Usuario verificado con el servidor (JWT). */

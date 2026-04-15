@@ -8,6 +8,10 @@ export const isSupabaseConfigured = Boolean(url && key);
 
 export const supabase = isSupabaseConfigured
   ? createClient(url, key, {
-      auth: { persistSession: true, autoRefreshToken: true },
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+      },
     })
   : null;
